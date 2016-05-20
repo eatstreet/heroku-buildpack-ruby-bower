@@ -1,9 +1,6 @@
 class LanguagePack::Helpers::RakeRunner
   include LanguagePack::ShellHelpers
 
-  class CannotLoadRakefileError < StandardError
-  end
-
   class RakeTask
     ALLOWED = [:pass, :fail, :no_load, :not_found]
     include LanguagePack::ShellHelpers
@@ -62,8 +59,8 @@ class LanguagePack::Helpers::RakeRunner
   end
 
   def initialize(has_rake_gem = true)
-    @has_rake_gem = has_rake_gem
-    if !has_rake_installed?
+    @has_rake = has_rake_gem && has_rakefile?
+    if !@has_rake
       @rake_tasks    = ""
       @rakefile_can_load = false
     end
@@ -89,20 +86,15 @@ class LanguagePack::Helpers::RakeRunner
     end
   end
 
-  def load_rake_tasks!(options = {}, raise_on_fail = false)
-    return if !has_rake_installed?
-
-    out = load_rake_tasks(options)
-
-    if cannot_load_rakefile?
-      msg =  "Could not detect rake tasks\n"
-      msg << "ensure you can run `$ bundle exec rake -P` against your app\n"
-      msg << "and using the production group of your Gemfile.\n"
-      msg << out
-      raise CannotLoadRakefileError, msg if raise_on_fail
-      puts msg
-    end
-
+  def load_rake_tasks!(options = {})
+    out =  load_rake_tasks(options)
+    msg =  "Could not detect rake tasks\n"
+    msg << "ensure you can run `$ bundle exec rake -P` against your app with no environment variables present\n"
+    msg << "and using the production group of your Gemfile.\n"
+    msg << "This may be intentional, if you expected rake tasks to be run\n"
+    msg << "cancel the build (CTRL+C) and fix the error then commit the fix:\n"
+    msg << out
+    puts msg if cannot_load_rakefile?
     return self
   end
 
@@ -125,10 +117,6 @@ class LanguagePack::Helpers::RakeRunner
 
   def invoke(task, options = {})
     self.task(task, options).invoke
-  end
-
-  def has_rake_installed?
-    @has_rake ||= (@has_rake_gem && has_rakefile?)
   end
 
 private
